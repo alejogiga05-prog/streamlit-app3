@@ -2,13 +2,11 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
+# Configuración general
 st.title("🤖 Monitoreo Inteligente y Detección de Anomalías")
+st.write("Simulación de sensores industriales con detección automática de anomalías y predicción de posibles fallas.")
 
-st.write("""
-Simulación de sensores industriales con detección automática de anomalías y predicción de posibles fallas.
-""")
-
-# --- Simular datos ---
+# --- Simulación de datos ---
 dias = pd.date_range("2025-01-01", periods=20)
 np.random.seed(42)
 
@@ -23,7 +21,7 @@ data = {
 
 df = pd.DataFrame(data)
 
-# --- Detectar anomalías (estadística simple) ---
+# --- Función para detectar anomalías ---
 def detectar_anomalias(columna):
     media = df[columna].mean()
     std = df[columna].std()
@@ -35,12 +33,22 @@ def detectar_anomalias(columna):
 for col in df.columns[1:]:
     df[f"Anómalo {col}"] = detectar_anomalias(col)
 
+# --- Mostrar tabla de datos ---
 st.subheader("📊 Datos simulados")
 st.dataframe(df)
 
-# --- Mostrar gráficos simples ---
-st.subheader("📈 Gráficos de sensores")
+# --- Mostrar promedios ---
+st.subheader("📈 Promedios generales")
 
+col1, col2, col3, col4, col5 = st.columns(5)
+col1.metric("Temperatura promedio", f"{df['Temperatura (°C)'].mean():.2f} °C")
+col2.metric("Humedad promedio", f"{df['Humedad (%)'].mean():.2f} %")
+col3.metric("Vibración promedio", f"{df['Vibración (mm/s)'].mean():.2f} mm/s")
+col4.metric("Corriente promedio", f"{df['Corriente (A)'].mean():.2f} A")
+col5.metric("Voltaje promedio", f"{df['Voltaje (V)'].mean():.2f} V")
+
+# --- Mostrar gráficos simples ---
+st.subheader("📉 Gráficos de sensores")
 for col in df.columns[1:6]:
     st.line_chart(df.set_index("Día")[[col]])
 
@@ -73,5 +81,6 @@ else:
     st.success("✅ Sistema en condiciones normales. Sin señales de falla.")
 
 st.caption("Simulación predictiva desarrollada en Streamlit – Alejandro Giraldo")
+
 
 
