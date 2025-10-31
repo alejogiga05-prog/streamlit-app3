@@ -2,96 +2,76 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# --- Configuración general ---
-st.title("🏭 Monitoreo Industrial de Sensores - Simulación")
+st.title("🤖 Monitoreo Inteligente y Detección de Anomalías")
 
 st.write("""
-Este tablero muestra datos simulados de diferentes sensores industriales: 
-temperatura, humedad, vibración, aceleración, corriente, voltaje, velocidad y producción.
+Simulación de sensores industriales con detección automática de anomalías y predicción de posibles fallas.
 """)
 
-# --- Generar datos simulados ---
-dias = pd.date_range("2025-01-01", periods=10)
+# --- Simular datos ---
+dias = pd.date_range("2025-01-01", periods=20)
+np.random.seed(42)
 
-# Simulación de variables (valores coherentes)
-temperatura = np.random.uniform(18, 40, size=10)
-humedad = np.random.uniform(30, 95, size=10)
-vibracion = np.random.uniform(0.2, 3.0, size=10)
-aceleracion = np.random.uniform(0.5, 4.0, size=10)
-corriente = np.random.uniform(2, 10, size=10)
-voltaje = np.random.uniform(210, 240, size=10)
-rpm = np.random.uniform(800, 1800, size=10)
-produccion = np.random.uniform(100, 500, size=10)
-
-# Crear DataFrame
-df = pd.DataFrame({
+data = {
     "Día": dias,
-    "Temperatura (°C)": temperatura,
-    "Humedad (%)": humedad,
-    "Vibración (mm/s)": vibracion,
-    "Aceleración (m/s²)": aceleracion,
-    "Corriente (A)": corriente,
-    "Voltaje (V)": voltaje,
-    "Velocidad (RPM)": rpm,
-    "Producción (unid/h)": produccion
-})
+    "Temperatura (°C)": np.random.normal(30, 3, 20),
+    "Humedad (%)": np.random.normal(60, 10, 20),
+    "Vibración (mm/s)": np.random.normal(1.5, 0.4, 20),
+    "Corriente (A)": np.random.normal(6, 1, 20),
+    "Voltaje (V)": np.random.normal(230, 5, 20)
+}
 
-# --- Mostrar tabla de datos ---
-st.subheader("📋 Datos simulados de sensores")
-st.dataframe(df, use_container_width=True)
+df = pd.DataFrame(data)
 
-# --- Gráficos individuales ---
-st.subheader("📈 Gráficos de variables industriales")
+# --- Detectar anomalías (estadística simple) ---
+def detectar_anomalias(columna):
+    media = df[columna].mean()
+    std = df[columna].std()
+    limite_inferior = media - 2*std
+    limite_superior = media + 2*std
+    return (df[columna] < limite_inferior) | (df[columna] > limite_superior)
 
-st.line_chart(df.set_index("Día")[["Temperatura (°C)"]])
-st.line_chart(df.set_index("Día")[["Humedad (%)"]])
-st.line_chart(df.set_index("Día")[["Vibración (mm/s)"]])
-st.line_chart(df.set_index("Día")[["Aceleración (m/s²)"]])
-st.line_chart(df.set_index("Día")[["Corriente (A)"]])
-st.line_chart(df.set_index("Día")[["Voltaje (V)"]])
-st.line_chart(df.set_index("Día")[["Velocidad (RPM)"]])
-st.line_chart(df.set_index("Día")[["Producción (unid/h)"]])
+# Marcar anomalías
+for col in df.columns[1:]:
+    df[f"Anómalo {col}"] = detectar_anomalias(col)
 
-# --- Promedios ---
-st.subheader("📊 Promedios de la semana")
+st.subheader("📊 Datos simulados")
+st.dataframe(df)
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Temp. promedio", f"{df['Temperatura (°C)'].mean():.2f} °C")
-col2.metric("Humedad promedio", f"{df['Humedad (%)'].mean():.2f} %")
-col3.metric("Vibración promedio", f"{df['Vibración (mm/s)'].mean():.2f}")
-col4.metric("Aceleración promedio", f"{df['Aceleración (m/s²)'].mean():.2f}")
+# --- Mostrar gráficos simples ---
+st.subheader("📈 Gráficos de sensores")
 
-col5, col6, col7, col8 = st.columns(4)
-col5.metric("Corriente promedio", f"{df['Corriente (A)'].mean():.2f} A")
-col6.metric("Voltaje promedio", f"{df['Voltaje (V)'].mean():.2f} V")
-col7.metric("Velocidad promedio", f"{df['Velocidad (RPM)'].mean():.0f} RPM")
-col8.metric("Producción promedio", f"{df['Producción (unid/h)'].mean():.0f} unid/h")
+for col in df.columns[1:6]:
+    st.line_chart(df.set_index("Día")[[col]])
 
-# --- Evaluación automática simple ---
-st.subheader("🧠 Diagnóstico automático")
+# --- Calcular resumen de anomalías ---
+st.subheader("⚠️ Resumen de anomalías detectadas")
+anomalias_totales = {col: df[f"Anómalo {col}"].sum() for col in df.columns[1:6]}
+anom_df = pd.DataFrame(list(anomalias_totales.items()), columns=["Variable", "N° de anomalías"])
+st.table(anom_df)
 
-if df["Vibración (mm/s)"].mean() > 2.0:
-    st.warning("🚨 Nivel de vibración elevado: posible desbalanceo o daño en el motor.")
+# --- Diagnóstico automático ---
+st.subheader("🧠 Diagnóstico predictivo")
+
+riesgo = 0
+for col, n in anomalias_totales.items():
+    if n > 2:
+        st.warning(f"⚠️ Alta cantidad de anomalías en **{col}** → posible riesgo futuro.")
+        riesgo += 1
+    elif n > 0:
+        st.info(f"ℹ️ Se detectaron algunas variaciones inusuales en **{col}**.")
+    else:
+        st.success(f"✅ {col} sin anomalías significativas.")
+
+# --- Predicción general ---
+st.markdown("---")
+if riesgo >= 3:
+    st.error("🚨 Predicción: **Alta probabilidad de falla próxima.** Requiere revisión técnica.")
+elif riesgo == 2:
+    st.warning("⚠️ Predicción: **Posible deterioro del sistema.** Monitorear con más frecuencia.")
 else:
-    st.success("✅ Vibración dentro del rango normal.")
+    st.success("✅ Sistema en condiciones normales. Sin señales de falla.")
 
-if df["Temperatura (°C)"].mean() > 35:
-    st.warning("🌡️ Temperatura excesiva: revisar sistema de enfriamiento.")
-else:
-    st.success("✅ Temperatura estable.")
-
-if df["Corriente (A)"].mean() > 8:
-    st.warning("⚡ Corriente alta: posible sobrecarga en el motor.")
-else:
-    st.success("✅ Corriente dentro de valores normales.")
-
-if df["Producción (unid/h)"].mean() < 200:
-    st.warning("📉 Producción baja: posible ralentización o falla en el proceso.")
-else:
-    st.success("✅ Producción dentro del rango esperado.")
-
-# --- Pie ---
-st.write("---")
-st.caption("Simulación de monitoreo industrial desarrollada en Streamlit (by Alejandro Giraldo)")
+st.caption("Simulación predictiva desarrollada en Streamlit – Alejandro Giraldo")
 
 
