@@ -6,19 +6,23 @@ from influxdb_client import InfluxDBClient, Point, WritePrecision
 from influxdb_client.client.write_api import SYNCHRONOUS
 from sklearn.linear_model import LinearRegression
 
-# ==========================================
-# 🔧 CONFIGURACIÓN DE CONEXIÓN A INFLUXDB
-# ==========================================
+# ==============================================
+# 🔧 CONFIGURACIÓN DE CONEXIÓN A INFLUXDB CLOUD
+# ==============================================
 INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
 INFLUXDB_TOKEN = "JcKXoXE30JQvV9Ggb4-zv6sQc0Zh6B6Haz5eMRW0FrJEduG2KcFJN9-7RoYvVORcFgtrHR-Q_ly-52pD7IC6JQ=="
 INFLUXDB_ORG = "0925ccf91ab36478"
 INFLUXDB_BUCKET = "EXTREME_MANUFACTURING"
 
-# ==========================================
-# 📈 FUNCIÓN PARA GENERAR DATOS SIMULADOS
-# ==========================================
+client = InfluxDBClient(url=INFLUXDB_URL, token=INFLUXDB_TOKEN, org=INFLUXDB_ORG)
+write_api = client.write_api(write_options=SYNCHRONOUS)
+query_api = client.query_api()
+
+# ==============================================
+# 📈 SIMULAR DATOS SIN NUMPY
+# ==============================================
 def generar_datos():
-    """Genera valores aleatorios de sensores industriales."""
+    """Genera datos aleatorios de sensores."""
     return {
         "temperatura": round(random.uniform(25, 40), 2),
         "humedad": round(random.uniform(45, 90), 2),
@@ -27,9 +31,9 @@ def generar_datos():
         "voltaje": round(random.uniform(220, 240), 2)
     }
 
-# ==========================================
+# ==============================================
 # 💾 GUARDAR DATOS EN INFLUXDB
-# ==========================================
+# ==============================================
 def guardar_datos_influx(datos):
     point = (
         Point("lecturas_sensores")
@@ -43,13 +47,13 @@ def guardar_datos_influx(datos):
     )
     write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
 
-# ==========================================
-# 📥 LEER TODOS LOS DATOS DESDE INFLUXDB
-# ==========================================
-def leer_todos_los_datos():
+# ==============================================
+# 📥 LEER DATOS DESDE INFLUXDB
+# ==============================================
+def leer_datos_influx():
     query = f'''
     from(bucket: "{INFLUXDB_BUCKET}")
-      |> range(start: 0)
+      |> range(start: -1h)
       |> filter(fn: (r) => r["_measurement"] == "lecturas_sensores")
       |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
       |> sort(columns: ["_time"], desc: false)
@@ -61,11 +65,10 @@ def leer_todos_los_datos():
     result.rename(columns={"_time": "tiempo"}, inplace=True)
     return result
 
-# ==========================================
-# ⚠️ DETECTAR ANOMALÍAS
-# ==========================================
+# ==============================================
+# 🚨 DETECTAR ANOMALÍAS
+# ==============================================
 def detectar_anomalias(df):
-    """Detecta anomalías simples por umbrales definidos."""
     condiciones = []
     for _, row in df.iterrows():
         if row["temperatura"] > 38 or row["vibracion"] > 4.5 or row["humedad"] > 85:
@@ -75,11 +78,10 @@ def detectar_anomalias(df):
     df["estado"] = condiciones
     return df
 
-# ==========================================
-# 🤖 REGRESIÓN LINEAL (PREDICCIÓN)
-# ==========================================
+# ==============================================
+# 🧠 REGRESIÓN LINEAL (PREDICCIÓN SIMPLE)
+# ==============================================
 def predecir_tendencia(df, variable):
-    """Predice la siguiente lectura usando regresión lineal simple."""
     if len(df) < 5:
         return None
     X = [[i] for i in range(len(df))]
@@ -88,55 +90,52 @@ def predecir_tendencia(df, variable):
     prediccion = modelo.predict([[len(df) + 1]])[0]
     return round(prediccion, 2)
 
-# ==========================================
+# ==============================================
 # 🎛️ INTERFAZ STREAMLIT
-# ==========================================
-st.title("🌐 Monitoreo Predictivo Industrial — InfluxDB (sin NumPy)")
+# ==============================================
+st.title("🌐 Monitoreo Predictivo Industrial con InfluxDB (sin NumPy)")
 st.write("""
-Aplicación de simulación y monitoreo en tiempo real que:
-- Registra y muestra todos los datos históricos de sensores
-- Detecta anomalías
-- Calcula promedios, máximos y mínimos
-- Predice tendencias con regresión lineal
+Sistema de monitoreo predictivo que:
+- Simula lecturas de sensores industriales  
+- Detecta anomalías y calcula promedios, máximos y mínimos  
+- Predice tendencias futuras con **regresión lineal**  
+- Usa InfluxDB como base de datos de series temporales
 """)
 
-# --- Botón para generar nueva lectura simulada ---
+# --- Generar lectura simulada ---
 if st.button("🔄 Generar nueva lectura simulada"):
     datos = generar_datos()
     guardar_datos_influx(datos)
-    st.success("✅ Nueva lectura registrada en InfluxDB.")
+    st.success("✅ Nueva lectura registrada correctamente.")
 
-# --- Consultar todos los datos guardados ---
-df = leer_todos_los_datos()
+# --- Leer datos de InfluxDB ---
+df = leer_datos_influx()
 
 if not df.empty:
     df = detectar_anomalias(df)
-    st.subheader("📋 Todos los datos registrados")
-    st.dataframe(df[["tiempo", "temperatura", "humedad", "vibracion", "corriente", "voltaje", "estado"]])
+    st.subheader("📊 Últimas lecturas de sensores")
+    st.dataframe(df.tail(10)[["tiempo", "temperatura", "humedad", "vibracion", "corriente", "voltaje", "estado"]])
 
-    # --- Estadísticas generales ---
-    st.subheader("📊 Estadísticas Generales")
+    # Estadísticas
+    st.subheader("📈 Estadísticas Generales")
     estadisticas = df[["temperatura", "humedad", "vibracion", "corriente", "voltaje"]].agg(["mean", "max", "min"]).T
     estadisticas.columns = ["Promedio", "Máximo", "Mínimo"]
     st.table(estadisticas)
 
-    # --- Predicción ---
-    st.subheader("🤖 Predicción de próxima lectura")
+    # Predicción
+    st.subheader("🤖 Predicción de Temperatura (Regresión Lineal)")
     pred_temp = predecir_tendencia(df, "temperatura")
-    pred_vib = predecir_tendencia(df, "vibracion")
-    if pred_temp and pred_vib:
+    if pred_temp:
         st.info(f"🔮 Temperatura estimada próxima: **{pred_temp} °C**")
-        st.info(f"🔮 Vibración estimada próxima: **{pred_vib} mm/s**")
     else:
-        st.warning("📉 Se necesitan más datos para realizar predicciones.")
+        st.warning("📉 Se necesitan más datos para generar predicciones.")
 
-    # --- Gráficos de tendencia ---
-    st.subheader("📉 Tendencias de las variables")
+    # Gráficos
+    st.subheader("📉 Tendencias de Variables")
     for var in ["temperatura", "humedad", "vibracion", "corriente", "voltaje"]:
         st.line_chart(df.set_index("tiempo")[var])
-
 else:
-    st.info("📭 No hay datos registrados todavía. Genera una lectura para comenzar.")
+    st.info("📭 No hay datos registrados aún. Genera una lectura simulada para comenzar.")
 
 st.caption("Desarrollado por Alejandro Giraldo — Monitoreo Predictivo con InfluxDB y Streamlit (sin NumPy)")
 
