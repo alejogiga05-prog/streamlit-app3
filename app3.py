@@ -93,7 +93,7 @@ for col in df.columns[1:6]:
 if detalles:
     st.table(pd.DataFrame(detalles))
 else:
-    st.success("✅ No se dete
+    st.success(" No se dete
 
 
 
