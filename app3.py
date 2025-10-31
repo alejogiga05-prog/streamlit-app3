@@ -1,160 +1,135 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
+import random
+from datetime import datetime
+from influxdb_client import InfluxDBClient, Point, WritePrecision
+from influxdb_client.client.write_api import SYNCHRONOUS
+from sklearn.linear_model import LinearRegression
 
-# --- CONFIGURACIÓN ---
-st.title("🤖 Monitoreo Predictivo Industrial con Métodos de Análisis")
+# ==============================================
+# 🔧 CONFIGURACIÓN DE CONEXIÓN A INFLUXDB CLOUD
+# ==============================================
+INFLUXDB_URL = "https://us-east-1-1.aws.cloud2.influxdata.com"
+INFLUXDB_TOKEN = "JcKXoXE30JQvV9Ggb4-zv6sQc0Zh6B6Haz5eMRW0FrJEduG2KcFJN9-7RoYvVORcFgtrHR-Q_ly-52pD7IC6JQ=="
+INFLUXDB_ORG = "0925ccf91ab36478"
+INFLUXDB_BUCKET = "EXTREME_MANUFACTURING")
+# ==============================================
+# 📈 SIMULAR DATOS SIN NUMPY
+# ==============================================
+def generar_datos():
+    """Genera datos aleatorios de sensores."""
+    return {
+        "temperatura": round(random.uniform(25, 40), 2),
+        "humedad": round(random.uniform(45, 90), 2),
+        "vibracion": round(random.uniform(0.5, 5.0), 2),
+        "corriente": round(random.uniform(4.0, 10.0), 2),
+        "voltaje": round(random.uniform(220, 240), 2)
+    }
+
+# ==============================================
+# 💾 GUARDAR DATOS EN INFLUXDB
+# ==============================================
+def guardar_datos_influx(datos):
+    point = (
+        Point("lecturas_sensores")
+        .tag("equipo", "motor_principal")
+        .field("temperatura", datos["temperatura"])
+        .field("humedad", datos["humedad"])
+        .field("vibracion", datos["vibracion"])
+        .field("corriente", datos["corriente"])
+        .field("voltaje", datos["voltaje"])
+        .time(datetime.utcnow(), WritePrecision.NS)
+    )
+    write_api.write(bucket=INFLUXDB_BUCKET, org=INFLUXDB_ORG, record=point)
+
+# ==============================================
+# 📥 LEER DATOS DESDE INFLUXDB
+# ==============================================
+def leer_datos_influx():
+    query = f'''
+    from(bucket: "{INFLUXDB_BUCKET}")
+      |> range(start: -1h)
+      |> filter(fn: (r) => r["_measurement"] == "lecturas_sensores")
+      |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+      |> sort(columns: ["_time"], desc: false)
+    '''
+    result = query_api.query_data_frame(org=INFLUXDB_ORG, query=query)
+    if result.empty:
+        return pd.DataFrame()
+    result["_time"] = pd.to_datetime(result["_time"])
+    result.rename(columns={"_time": "tiempo"}, inplace=True)
+    return result
+
+# ==============================================
+# 🚨 DETECTAR ANOMALÍAS
+# ==============================================
+def detectar_anomalias(df):
+    condiciones = []
+    for _, row in df.iterrows():
+        if row["temperatura"] > 38 or row["vibracion"] > 4.5 or row["humedad"] > 85:
+            condiciones.append("⚠️ Anomalía detectada")
+        else:
+            condiciones.append("Normal")
+    df["estado"] = condiciones
+    return df
+
+# ==============================================
+# 🧠 REGRESIÓN LINEAL (PREDICCIÓN SIMPLE)
+# ==============================================
+def predecir_tendencia(df, variable):
+    if len(df) < 5:
+        return None
+    X = [[i] for i in range(len(df))]
+    y = df[variable].tolist()
+    modelo = LinearRegression().fit(X, y)
+    prediccion = modelo.predict([[len(df) + 1]])[0]
+    return round(prediccion, 2)
+
+# ==============================================
+# 🎛️ INTERFAZ STREAMLIT
+# ==============================================
+st.title("🌐 Monitoreo Predictivo Industrial con InfluxDB (sin NumPy)")
 st.write("""
-Simulación de sensores industriales con **detección de anomalías**, 
-**análisis predictivo** y **acciones preventivas automáticas**.
+Sistema de monitoreo predictivo que:
+- Simula lecturas de sensores industriales  
+- Detecta anomalías y calcula promedios, máximos y mínimos  
+- Predice tendencias futuras con **regresión lineal**  
+- Usa InfluxDB como base de datos de series temporales
 """)
 
-# --- SIMULACIÓN DE DATOS ---
-dias = pd.date_range("2025-01-01", periods=20)
-np.random.seed(42)
-data = {
-    "Día": dias,
-    "Temperatura (°C)": np.random.normal(30, 3, 20),
-    "Humedad (%)": np.random.normal(60, 10, 20),
-    "Vibración (mm/s)": np.random.normal(1.5, 0.4, 20),
-    "Corriente (A)": np.random.normal(6, 1, 20),
-    "Voltaje (V)": np.random.normal(230, 5, 20)
-}
-df = pd.DataFrame(data)
+# --- Generar lectura simulada ---
+if st.button("🔄 Generar nueva lectura simulada"):
+    datos = generar_datos()
+    guardar_datos_influx(datos)
+    st.success("✅ Nueva lectura registrada correctamente.")
 
-# --- DETECCIÓN DE ANOMALÍAS ---
-def detectar_anomalias(columna):
-    media = df[columna].mean()
-    std = df[columna].std()
-    limite_inf = media - 2 * std
-    limite_sup = media + 2 * std
-    df[f"Anómalo {columna}"] = (df[columna] < limite_inf) | (df[columna] > limite_sup)
-    return limite_inf, limite_sup
+# --- Leer datos de InfluxDB ---
+df = leer_datos_influx()
 
-limites = {}
-for col in df.columns[1:]:
-    limites[col] = detectar_anomalias(col)
+if not df.empty:
+    df = detectar_anomalias(df)
+    st.subheader("📊 Últimas lecturas de sensores")
+    st.dataframe(df.tail(10)[["tiempo", "temperatura", "humedad", "vibracion", "corriente", "voltaje", "estado"]])
 
-# --- ESTADÍSTICAS GENERALES ---
-st.subheader("📈 Promedios, Mínimos y Máximos de cada Variable")
-estadisticas = []
-for col in df.columns[1:6]:
-    estadisticas.append({
-        "Variable": col,
-        "Promedio": round(df[col].mean(), 2),
-        "Mínimo": round(df[col].min(), 2),
-        "Máximo": round(df[col].max(), 2)
-    })
-st.table(pd.DataFrame(estadisticas))
+    # Estadísticas
+    st.subheader("📈 Estadísticas Generales")
+    estadisticas = df[["temperatura", "humedad", "vibracion", "corriente", "voltaje"]].agg(["mean", "max", "min"]).T
+    estadisticas.columns = ["Promedio", "Máximo", "Mínimo"]
+    st.table(estadisticas)
 
-# --- MÉTODO PREDICTIVO ---
-st.subheader("🔮 Análisis Predictivo (Promedios Móviles + Regresión Lineal)")
-
-predicciones = []
-for col in df.columns[1:6]:
-    # Promedio móvil (ventana de 3 días)
-    df[f"Promedio Móvil {col}"] = df[col].rolling(window=3).mean()
-
-    # Regresión lineal simple para pronóstico
-    x = np.arange(len(df))
-    y = df[col].values
-    coef = np.polyfit(x, y, 1)  # Ajuste lineal
-    tendencia = coef[0]         # Pendiente
-    proximo_valor = coef[0] * (len(df)) + coef[1]
-
-    # Clasificar tendencia
-    if tendencia > 0.2:
-        tendencia_texto = "⬆️ En aumento"
-    elif tendencia < -0.2:
-        tendencia_texto = "⬇️ En descenso"
+    # Predicción
+    st.subheader("🤖 Predicción de Temperatura (Regresión Lineal)")
+    pred_temp = predecir_tendencia(df, "temperatura")
+    if pred_temp:
+        st.info(f"🔮 Temperatura estimada próxima: **{pred_temp} °C**")
     else:
-        tendencia_texto = "➡️ Estable"
+        st.warning("📉 Se necesitan más datos para generar predicciones.")
 
-    predicciones.append({
-        "Variable": col,
-        "Tendencia": tendencia_texto,
-        "Predicción Próximo Día": round(proximo_valor, 2)
-    })
-
-st.table(pd.DataFrame(predicciones))
-
-# --- MOSTRAR TENDENCIAS ---
-st.subheader("📉 Gráficos de Tendencias y Suavizado")
-for col in df.columns[1:6]:
-    st.line_chart(df.set_index("Día")[[col, f"Promedio Móvil {col}"]])
-
-# --- ANÁLISIS DE ANOMALÍAS ---
-st.subheader("⚠️ Descripción de Anomalías Detectadas")
-
-anomaly_details = []
-for col in df.columns[1:6]:
-    anom_rows = df[df[f"Anómalo {col}"]]
-    if not anom_rows.empty:
-        limite_inf, limite_sup = limites[col]
-        for _, row in anom_rows.iterrows():
-            valor = row[col]
-            dia = row["Día"].strftime("%Y-%m-%d")
-            if valor > limite_sup:
-                tipo = "por encima del rango"
-                impacto = "posible sobrecarga o exceso térmico"
-            else:
-                tipo = "por debajo del rango"
-                impacto = "posible fallo de sensor o baja eficiencia"
-            anomaly_details.append({
-                "Fecha": dia,
-                "Variable": col,
-                "Valor": round(valor, 2),
-                "Rango Normal": f"{limite_inf:.2f} – {limite_sup:.2f}",
-                "Descripción": f"Valor {tipo}, {impacto}."
-            })
-
-if anomaly_details:
-    st.table(pd.DataFrame(anomaly_details))
+    # Gráficos
+    st.subheader("📉 Tendencias de Variables")
+    for var in ["temperatura", "humedad", "vibracion", "corriente", "voltaje"]:
+        st.line_chart(df.set_index("tiempo")[var])
 else:
-    st.success("✅ No se detectaron anomalías en las lecturas recientes.")
+    st.info("📭 No hay datos registrados aún. Genera una lectura simulada para comenzar.")
 
-# --- DIAGNÓSTICO Y PREVENCIÓN ---
-st.subheader("🧠 Diagnóstico y Acciones Preventivas")
-
-anomalias_totales = {col: df[f"Anómalo {col}"].sum() for col in df.columns[1:6]}
-riesgo = 0
-recomendaciones = []
-
-for col, n in anomalias_totales.items():
-    if n > 2:
-        st.warning(f"⚠️ Alta cantidad de anomalías en **{col}** → posible riesgo futuro.")
-        riesgo += 1
-        if "Temperatura" in col:
-            recomendaciones.append("Revisar ventilación y limpiar filtros del motor.")
-        elif "Humedad" in col:
-            recomendaciones.append("Verificar sellado y humedad del ambiente.")
-        elif "Vibración" in col:
-            recomendaciones.append("Inspeccionar rodamientos y alineación del eje.")
-        elif "Corriente" in col:
-            recomendaciones.append("Comprobar cableado y consumo de energía.")
-        elif "Voltaje" in col:
-            recomendaciones.append("Revisar estabilidad de alimentación eléctrica.")
-    elif n > 0:
-        st.info(f"ℹ️ Variaciones leves detectadas en **{col}**.")
-    else:
-        st.success(f"✅ {col} dentro del rango normal.")
-
-# --- ESTADO GLOBAL ---
-st.markdown("---")
-if riesgo >= 3:
-    st.error("🚨 Alta probabilidad de falla próxima. Revisión técnica urgente.")
-elif riesgo == 2:
-    st.warning("⚠️ Posible deterioro del sistema. Revisión preventiva recomendada.")
-else:
-    st.success("✅ Sistema estable. Sin señales de falla inminente.")
-
-# --- RECOMENDACIONES ---
-if recomendaciones:
-    st.subheader("🛠️ Acciones Preventivas Sugeridas")
-    for rec in recomendaciones:
-        st.write(f"- {rec}")
-else:
-    st.write("💡 No se requieren acciones preventivas por el momento.")
-
-st.caption("Desarrollado por Alejandro Giraldo — Sistema Predictivo con Promedios Móviles y Regresión Lineal")
-
+st.caption("Desarrollado por Alejandro Giraldo — Monitoreo Predictivo con InfluxDB y Streamlit (sin NumPy)")
