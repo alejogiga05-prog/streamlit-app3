@@ -1,46 +1,39 @@
-import streamlit as st
+iimport streamlit as st
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
 
-# --- Título principal ---
-st.title("🌡️ Monitoreo Industrial de Temperatura")
+# Título principal
+st.title("Monitoreo de Temperatura")
 
-st.write("Esta aplicación muestra datos simulados de temperatura industrial para pruebas de digitalización.")
+st.write("Esta aplicación muestra temperaturas simuladas durante una semana.")
 
-# --- Generar datos simulados ---
+# Crear datos simulados
 dias = pd.date_range("2025-01-01", periods=7)
 temperaturas = np.random.uniform(18, 35, size=7)
-df = pd.DataFrame({"Fecha": dias, "Temperatura (°C)": temperaturas})
 
-# --- Mostrar tabla de datos ---
-st.subheader("📋 Datos de temperatura simulados")
-st.dataframe(df, use_container_width=True)
+# Crear tabla
+df = pd.DataFrame({
+    "Día": dias,
+    "Temperatura (°C)": temperaturas
+})
 
-# --- Crear gráfico con Matplotlib ---
-st.subheader("📈 Gráfico de temperatura semanal")
+# Mostrar tabla
+st.subheader("Datos de Temperatura")
+st.dataframe(df)
 
-fig, ax = plt.subplots()
-ax.plot(df["Fecha"], df["Temperatura (°C)"], marker="o", linestyle="-", color="blue")
-ax.set_xlabel("Fecha")
-ax.set_ylabel("Temperatura (°C)")
-ax.set_title("Evolución de la temperatura industrial")
-plt.xticks(rotation=45)
+# Gráfico simple de Streamlit
+st.subheader("Gráfico de Temperatura")
+st.line_chart(df.set_index("Día"))
 
-st.pyplot(fig)
-
-# --- Calcular promedio ---
+# Calcular promedio
 promedio = df["Temperatura (°C)"].mean()
-st.metric("Temperatura promedio", f"{promedio:.2f} °C")
+st.subheader("Promedio de Temperatura")
+st.write(f"**{promedio:.2f} °C**")
 
-# --- Evaluar condiciones ---
+# Mensaje según rango
 if promedio > 30:
-    st.warning("⚠️ La temperatura promedio es alta, revise los sistemas de enfriamiento.")
+    st.warning("⚠️ La temperatura promedio es muy alta.")
 elif promedio < 20:
-    st.info("❄️ Temperatura baja, posible ahorro energético.")
+    st.info("❄️ La temperatura promedio es baja.")
 else:
-    st.success("✅ Temperatura dentro del rango normal de operación.")
-
-# --- Pie de página ---
-st.write("---")
-st.caption("Aplicación desarrollada como proyecto de digitalización industrial.")
+    st.success("✅ Temperatura dentro del rango normal.")
