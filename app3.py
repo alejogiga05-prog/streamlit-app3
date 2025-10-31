@@ -139,3 +139,4 @@ else:
 
 st.caption("Desarrollado por Alejandro Giraldo — Monitoreo Predictivo con InfluxDB y Streamlit (sin NumPy)")
 
+
