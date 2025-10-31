@@ -2,11 +2,14 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Configuración general
-st.title("🤖 Monitoreo Inteligente y Detección de Anomalías")
-st.write("Simulación de sensores industriales con detección automática de anomalías y predicción de posibles fallas.")
+# Título y descripción
+st.title("🤖 Monitoreo Predictivo y Prevención de Fallas")
+st.write("""
+Sistema inteligente de monitoreo industrial que simula lecturas de sensores, 
+detecta anomalías y genera recomendaciones preventivas para evitar fallas futuras.
+""")
 
-# --- Simulación de datos ---
+# --- Simulación de datos de sensores ---
 dias = pd.date_range("2025-01-01", periods=20)
 np.random.seed(42)
 
@@ -29,58 +32,81 @@ def detectar_anomalias(columna):
     limite_superior = media + 2*std
     return (df[columna] < limite_inferior) | (df[columna] > limite_superior)
 
-# Marcar anomalías
+# Agregar columnas de anomalías
 for col in df.columns[1:]:
     df[f"Anómalo {col}"] = detectar_anomalias(col)
 
-# --- Mostrar tabla de datos ---
-st.subheader("📊 Datos simulados")
+# --- Mostrar datos simulados ---
+st.subheader("📊 Datos de Sensores Simulados")
 st.dataframe(df)
 
-# --- Mostrar promedios ---
-st.subheader("📈 Promedios generales")
-
+# --- Promedios ---
+st.subheader("📈 Promedios Generales")
 col1, col2, col3, col4, col5 = st.columns(5)
-col1.metric("Temperatura promedio", f"{df['Temperatura (°C)'].mean():.2f} °C")
-col2.metric("Humedad promedio", f"{df['Humedad (%)'].mean():.2f} %")
-col3.metric("Vibración promedio", f"{df['Vibración (mm/s)'].mean():.2f} mm/s")
-col4.metric("Corriente promedio", f"{df['Corriente (A)'].mean():.2f} A")
-col5.metric("Voltaje promedio", f"{df['Voltaje (V)'].mean():.2f} V")
+col1.metric("Temperatura", f"{df['Temperatura (°C)'].mean():.2f} °C")
+col2.metric("Humedad", f"{df['Humedad (%)'].mean():.2f} %")
+col3.metric("Vibración", f"{df['Vibración (mm/s)'].mean():.2f} mm/s")
+col4.metric("Corriente", f"{df['Corriente (A)'].mean():.2f} A")
+col5.metric("Voltaje", f"{df['Voltaje (V)'].mean():.2f} V")
 
-# --- Mostrar gráficos simples ---
-st.subheader("📉 Gráficos de sensores")
+# --- Gráficos ---
+st.subheader("📉 Gráficos de Variables")
 for col in df.columns[1:6]:
     st.line_chart(df.set_index("Día")[[col]])
 
-# --- Calcular resumen de anomalías ---
-st.subheader("⚠️ Resumen de anomalías detectadas")
+# --- Resumen de anomalías ---
+st.subheader("⚠️ Resumen de Anomalías")
 anomalias_totales = {col: df[f"Anómalo {col}"].sum() for col in df.columns[1:6]}
 anom_df = pd.DataFrame(list(anomalias_totales.items()), columns=["Variable", "N° de anomalías"])
 st.table(anom_df)
 
-# --- Diagnóstico automático ---
-st.subheader("🧠 Diagnóstico predictivo")
+# --- Diagnóstico y prevención ---
+st.subheader("🧠 Diagnóstico Predictivo y Prevención")
 
 riesgo = 0
+recomendaciones = []
+
 for col, n in anomalias_totales.items():
     if n > 2:
-        st.warning(f"⚠️ Alta cantidad de anomalías en **{col}** → posible riesgo futuro.")
+        st.warning(f"⚠️ Alta cantidad de anomalías en **{col}** → posible falla futura.")
         riesgo += 1
-    elif n > 0:
-        st.info(f"ℹ️ Se detectaron algunas variaciones inusuales en **{col}**.")
-    else:
-        st.success(f"✅ {col} sin anomalías significativas.")
 
-# --- Predicción general ---
+        # Recomendaciones preventivas según tipo de variable
+        if "Temperatura" in col:
+            recomendaciones.append("Revisar ventilación y limpieza del motor.")
+        elif "Humedad" in col:
+            recomendaciones.append("Verificar sellado de la cabina y control ambiental.")
+        elif "Vibración" in col:
+            recomendaciones.append("Inspeccionar rodamientos, alineación y fijaciones del motor.")
+        elif "Corriente" in col:
+            recomendaciones.append("Revisar cableado, aislamiento y consumo de cargas conectadas.")
+        elif "Voltaje" in col:
+            recomendaciones.append("Verificar estabilidad de alimentación y filtros eléctricos.")
+
+    elif n > 0:
+        st.info(f"ℹ️ Variaciones leves en **{col}**. Monitorear periódicamente.")
+    else:
+        st.success(f"✅ {col} dentro del rango normal.")
+
+# --- Evaluación general ---
 st.markdown("---")
 if riesgo >= 3:
-    st.error("🚨 Predicción: **Alta probabilidad de falla próxima.** Requiere revisión técnica.")
+    st.error("🚨 Predicción: Alta probabilidad de falla próxima. Requiere revisión técnica urgente.")
 elif riesgo == 2:
-    st.warning("⚠️ Predicción: **Posible deterioro del sistema.** Monitorear con más frecuencia.")
+    st.warning("⚠️ Predicción: Posible deterioro del sistema. Revisión preventiva recomendada.")
 else:
-    st.success("✅ Sistema en condiciones normales. Sin señales de falla.")
+    st.success("✅ Sistema estable. No se detectan señales de falla inminente.")
 
-st.caption("Simulación predictiva desarrollada en Streamlit – Alejandro Giraldo")
+# --- Recomendaciones preventivas ---
+if recomendaciones:
+    st.subheader("🛠️ Acciones Preventivas Sugeridas")
+    for rec in recomendaciones:
+        st.write(f"- {rec}")
+else:
+    st.write("💡 No se requieren acciones preventivas en este momento.")
+
+st.caption("Desarrollado por Alejandro Giraldo — Sistema Predictivo de Mantenimiento en Streamlit")
+
 
 
 
