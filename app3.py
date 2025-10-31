@@ -2,56 +2,96 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 
-# Título principal
-st.title("🌡️ Monitoreo de Temperatura y Humedad")
+# --- Configuración general ---
+st.title("🏭 Monitoreo Industrial de Sensores - Simulación")
 
-st.write("Aplicación sencilla para visualizar datos simulados de temperatura y humedad durante una semana.")
+st.write("""
+Este tablero muestra datos simulados de diferentes sensores industriales: 
+temperatura, humedad, vibración, aceleración, corriente, voltaje, velocidad y producción.
+""")
 
-# Crear datos simulados
-dias = pd.date_range("2025-01-01", periods=7)
-temperaturas = np.random.uniform(18, 35, size=7)
-humedad = np.random.uniform(40, 90, size=7)
+# --- Generar datos simulados ---
+dias = pd.date_range("2025-01-01", periods=10)
+
+# Simulación de variables (valores coherentes)
+temperatura = np.random.uniform(18, 40, size=10)
+humedad = np.random.uniform(30, 95, size=10)
+vibracion = np.random.uniform(0.2, 3.0, size=10)
+aceleracion = np.random.uniform(0.5, 4.0, size=10)
+corriente = np.random.uniform(2, 10, size=10)
+voltaje = np.random.uniform(210, 240, size=10)
+rpm = np.random.uniform(800, 1800, size=10)
+produccion = np.random.uniform(100, 500, size=10)
 
 # Crear DataFrame
 df = pd.DataFrame({
     "Día": dias,
-    "Temperatura (°C)": temperaturas,
-    "Humedad (%)": humedad
+    "Temperatura (°C)": temperatura,
+    "Humedad (%)": humedad,
+    "Vibración (mm/s)": vibracion,
+    "Aceleración (m/s²)": aceleracion,
+    "Corriente (A)": corriente,
+    "Voltaje (V)": voltaje,
+    "Velocidad (RPM)": rpm,
+    "Producción (unid/h)": produccion
 })
 
-# Mostrar tabla
-st.subheader("📋 Datos simulados")
-st.dataframe(df)
+# --- Mostrar tabla de datos ---
+st.subheader("📋 Datos simulados de sensores")
+st.dataframe(df, use_container_width=True)
 
-# Gráfico de temperatura
-st.subheader("🌡️ Gráfico de Temperatura")
-st.line_chart(df.set_index("Día")["Temperatura (°C)"])
+# --- Gráficos individuales ---
+st.subheader("📈 Gráficos de variables industriales")
 
-# Gráfico de humedad
-st.subheader("💧 Gráfico de Humedad")
-st.line_chart(df.set_index("Día")["Humedad (%)"])
+st.line_chart(df.set_index("Día")[["Temperatura (°C)"]])
+st.line_chart(df.set_index("Día")[["Humedad (%)"]])
+st.line_chart(df.set_index("Día")[["Vibración (mm/s)"]])
+st.line_chart(df.set_index("Día")[["Aceleración (m/s²)"]])
+st.line_chart(df.set_index("Día")[["Corriente (A)"]])
+st.line_chart(df.set_index("Día")[["Voltaje (V)"]])
+st.line_chart(df.set_index("Día")[["Velocidad (RPM)"]])
+st.line_chart(df.set_index("Día")[["Producción (unid/h)"]])
 
-# Calcular promedios
-prom_temp = df["Temperatura (°C)"].mean()
-prom_hum = df["Humedad (%)"].mean()
+# --- Promedios ---
+st.subheader("📊 Promedios de la semana")
 
-st.subheader("📊 Promedios semanales")
-col1, col2 = st.columns(2)
-col1.metric("Temperatura promedio", f"{prom_temp:.2f} °C")
-col2.metric("Humedad promedio", f"{prom_hum:.2f} %")
+col1, col2, col3, col4 = st.columns(4)
+col1.metric("Temp. promedio", f"{df['Temperatura (°C)'].mean():.2f} °C")
+col2.metric("Humedad promedio", f"{df['Humedad (%)'].mean():.2f} %")
+col3.metric("Vibración promedio", f"{df['Vibración (mm/s)'].mean():.2f}")
+col4.metric("Aceleración promedio", f"{df['Aceleración (m/s²)'].mean():.2f}")
 
-# Mensajes según condiciones
-if prom_temp > 30:
-    st.warning("⚠️ Temperatura alta: revise sistemas de enfriamiento.")
-elif prom_temp < 20:
-    st.info("❄️ Temperatura baja: posible ahorro energético.")
+col5, col6, col7, col8 = st.columns(4)
+col5.metric("Corriente promedio", f"{df['Corriente (A)'].mean():.2f} A")
+col6.metric("Voltaje promedio", f"{df['Voltaje (V)'].mean():.2f} V")
+col7.metric("Velocidad promedio", f"{df['Velocidad (RPM)'].mean():.0f} RPM")
+col8.metric("Producción promedio", f"{df['Producción (unid/h)'].mean():.0f} unid/h")
+
+# --- Evaluación automática simple ---
+st.subheader("🧠 Diagnóstico automático")
+
+if df["Vibración (mm/s)"].mean() > 2.0:
+    st.warning("🚨 Nivel de vibración elevado: posible desbalanceo o daño en el motor.")
 else:
-    st.success("✅ Temperatura dentro del rango normal.")
+    st.success("✅ Vibración dentro del rango normal.")
 
-if prom_hum > 80:
-    st.warning("💦 Humedad muy alta: riesgo de condensación.")
-elif prom_hum < 40:
-    st.info("🌵 Humedad baja: revise sistemas de ventilación.")
+if df["Temperatura (°C)"].mean() > 35:
+    st.warning("🌡️ Temperatura excesiva: revisar sistema de enfriamiento.")
 else:
-    st.success("✅ Humedad dentro del rango recomendado.")
+    st.success("✅ Temperatura estable.")
+
+if df["Corriente (A)"].mean() > 8:
+    st.warning("⚡ Corriente alta: posible sobrecarga en el motor.")
+else:
+    st.success("✅ Corriente dentro de valores normales.")
+
+if df["Producción (unid/h)"].mean() < 200:
+    st.warning("📉 Producción baja: posible ralentización o falla en el proceso.")
+else:
+    st.success("✅ Producción dentro del rango esperado.")
+
+# --- Pie ---
+st.write("---")
+st.caption("Simulación de monitoreo industrial desarrollada en Streamlit (by Alejandro Giraldo)")
+
 
